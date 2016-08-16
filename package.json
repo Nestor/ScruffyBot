@@ -1,5 +1,6 @@
 {
   "dependencies": {
-    "cursejs": "github:njibhu/cursejs#dev"
+    "cursejs": "github:njibhu/cursejs#dev",
+    "winston": "^2.2.0"
   }
 }

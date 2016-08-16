@@ -1,3 +1,6 @@
+#Ignore modules runtime files
+modules_files/
+
 # Not giving away Scruffy credentials :P
 logins.json
 

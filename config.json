@@ -1,1 +1,50 @@
-{}
+{
+    "mainServer": "ce41dab9-a921-40b4-8953-be788e9b595b",
+    "commandPrefix": "!",
+    "roleIgnoringSpamCheck": [14, 1, 3, 7, 15, 17],
+    "spamCheckDelay": 2000,
+    "messageHistory":{
+        "cleanerTime": 604800,
+        "dblocation": "./modules_files/msghistory.json"
+    },
+    "timebans":{
+        "dblocation": "./modules_files/timebans.json"
+    },
+    "modules":
+    {
+        "linkprevent":{
+            "channels":["34a7c07a-48e2-42b4-9567-c199ab6f66f9"],
+            "allowedRoles":[14, 1, 3, 7, 15, 17]
+        },
+        "ban_manager":{
+            "canBan":[
+                {"maxTime": 604800, "role":24},
+                {"maxTime": 604800, "role":22},
+                {"maxTime": 604800, "role":23},
+                {"maxTime": 604800, "role":22}
+            ],
+            "canFullUnbanRoles":[14, 1, 3, 7, 15, 17, 26, 27]
+        },
+        "deledited":{
+            "saveDB":{
+                "allowedRoles":[3]
+            },
+            "deled":{
+                "allowedRoles":[14, 1, 3, 7, 15, 17, 26, 27]
+            }
+
+        },
+        "ping":{
+            "allowedRoles":[14, 1, 3, 7, 15, 17, 26, 27],
+            "enabled": true
+        },
+        "spaceit":{
+            "allowedRoles":[14, 1, 3, 7, 15, 17, 26, 27],
+            "enabled": true
+        },
+        "highlight_check":{
+            "allowedRoles":[],
+            "enabled": true
+        }
+    }
+}
