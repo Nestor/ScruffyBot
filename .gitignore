@@ -1,8 +1,5 @@
 #Ignore modules runtime files
-modules_files/
-
-# Not giving away Scruffy credentials :P
-logins.json
+modules_files/*.json
 
 # Logs
 logs
