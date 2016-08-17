@@ -152,7 +152,7 @@ class TimebansManager {
                         }
                     });
                 }
-                this.saving = false;
+                self.saving = false;
                 callback(err);
             });
         } else {
