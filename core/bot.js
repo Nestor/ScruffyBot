@@ -15,14 +15,19 @@ class Bot extends Client{
         winston.log('info', `### └(‾.‾“)┐ Starting the amazing ScruffyBot ! '(⌐■_■)♪ ###`);
         winston.log('info', `###########################################################`);
         this.config = require('../config.json');
-        this.commands = new CommandManager(this);
-        this.msghistory = new MessageHistory(this);
-        this.timebans = new TimebansManager(this);
         var self = this;
+        //Get informations for everyone
         this.on('ready',function(){
             self.mainServer = self.servers.get(self.config.mainServer);
             self.moderatorsRole = self.mainServer.roles.get(self.config.moderatorsID);
+        });
+        //Load core modules
+        this.commands = new CommandManager(this);
+        this.msghistory = new MessageHistory(this);
+        this.timebans = new TimebansManager(this);
 
+        //Load modules
+        this.on('ready',function(){
             for(let module of modules){
                 module.setup(self);
                 winston.log('info', 'Bot:', `Module ${module.name} loaded!`);

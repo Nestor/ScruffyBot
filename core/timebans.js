@@ -21,6 +21,7 @@ class TimebansManager {
         this.bans = new Map();
         this.cleaners = new Map();
         this.config = this.scruffy.config.timebans;
+        this.saving = false;
 
         this.loadDB();
     }
@@ -39,7 +40,12 @@ class TimebansManager {
         duration = duration * 1000;
         var requestTimestamp = Date.now();
         var expiration_date = new Date(requestTimestamp + duration);
-        var server_reason = `Ban until [${expiration_date.toUTCString()}]. ${reason}`.substr(0, 255);
+        if(reason != null){
+            var server_reason = `Ban until [${expiration_date.toUTCString()}]. ${reason}`.substr(0, 255);
+        } else {
+            var server_reason = `Ban until [${expiration_date.toUTCString()}].`;
+        }
+
 
         //I don't care if username method fails, it's here only for additional logging
         user.username(function(_, username){
@@ -50,16 +56,6 @@ class TimebansManager {
                     if(self.cleaners.has(user.ID)){
                         clearTimeout(self.cleaners.get(user.ID));
                     };
-                    //Clean automatically the ban after the given time
-                    self.cleaners.set(user.ID, setTimeout(function(){
-                        self.unban(user, function(errors){
-                            if(errors != null){
-                                winston.log("error", exports.name, "Unable to unban user:", user.ID, username);
-                            } else {
-                                winston.log("info", exports.name, "Succesfully unbanned:", user.ID, username);
-                            }
-                        });
-                    }, duration));
 
                     //Register the ban into a map
                     self.bans.set(user.ID, new Ban(
@@ -71,12 +67,47 @@ class TimebansManager {
                         ipban
                     ));
 
+                    //Clean automatically the ban after the given time
+                    self.cleaner(user);
+
                     self.saveDB();
                 }
                 //transmit the callback
                 callback(errors);
             });
         });
+    }
+
+    cleaner(user){
+        var self = this;
+        if(this.cleaners.has(user.ID)){
+            clearTimeout(this.cleaners.get(user.ID));
+        };
+
+        if(this.bans.has(user.ID)){
+            var ban = this.bans.get(user.ID);
+            var timeToBan = (ban.requestTimestamp + ban.banDuration) - Date.now();
+            if(timeToBan < 0){
+                this.unban(user, function(errors){
+                    if(errors != null){
+                        winston.log("error", exports.name, "Unable to unban user:", user.ID);
+                    } else {
+                        winston.log("info", exports.name, "Succesfully unbanned:", user.ID);
+                    }
+                });
+            }
+            //Node timeout value is a signed integer..
+            else if(timeToBan >= 2147483647){
+                this.cleaners.set(user.ID, setTimeout(function(){
+                    self.cleaner(user);
+                }, 2147483647));
+            }
+            else {
+                this.cleaners.set(user.ID, setTimeout(function(){
+                    self.cleaner(user);
+                }, timeToBan));
+            }
+        }
     }
 
     unban(user, callback){
@@ -104,26 +135,36 @@ class TimebansManager {
         if (callback == undefined){
             callback = _ => {};
         }
-        let db = this.formatDB();
-        var self = this;
-        //Instead of writing on top of the current db, we write next to it, and replace it once everything is written.
-        fs.writeFile(this.config.dblocation + ".tmp", db, function(err) {
-            if(err) {
-                winston.log("error", exports.name, err);
-            } else {
-                fs.rename(self.config.dblocation + ".tmp", self.config.dblocation, function(err){
-                    if(err){
-                        winston.log("error", exports.name, err);
-                    } else {
-                        winston.log("info", exports.name, "DB Saved!");
-                    }
-                });
-            }
-            callback(err);
-        });
+        if(!this.saving){
+            this.saving = true;
+            let db = this.formatDB();
+            var self = this;
+            //Instead of writing on top of the current db, we write next to it, and replace it once everything is written.
+            fs.writeFile(this.config.dblocation + ".tmp", db, function(err) {
+                if(err) {
+                    winston.log("error", exports.name, err);
+                } else {
+                    fs.rename(self.config.dblocation + ".tmp", self.config.dblocation, function(err){
+                        if(err){
+                            winston.log("error", exports.name, err);
+                        } else {
+                            winston.log("info", exports.name, "DB Saved!");
+                        }
+                    });
+                }
+                this.saving = false;
+                callback(err);
+            });
+        } else {
+            var self = this;
+            setTimeout(function(){
+                self.saveDB(callback);
+            }, 30000);
+        }
     }
 
     loadDB(callback){
+        var self = this;
         if (callback == undefined){
             callback = _ => {};
         }
@@ -135,27 +176,22 @@ class TimebansManager {
                     //Load db to map
                     this.bans = new Map(dbfile.db);
 
-                    //Generate cleaners for each ban
-                    for(let [userID, ban] of this.bans){
-                        //calculate when user will get unbanned
-                        var time = (ban.requestTimestamp + ban.banDuration) - Date.now();
-                        if(time < 10000){
-                            time = 10000;
-                        }
+                    //Add cleaners when client is ready
+                    this.scruffy.on('ready', function(){
+                        //Generate cleaners for each ban
+                        for(let [userID, ban] of self.bans){
+                            //calculate when user will get unbanned
+                            var time = (ban.requestTimestamp + ban.banDuration) - Date.now();
+                            if(time < 10000){
+                                time = 10000;
+                            }
 
-                        //Register unbanning
-                        var self = this;
-                        this.cleaners.set(userID, setTimeout(function(){
+                            //Take care of unbanning
                             var user = self.scruffy.getUser(userID);
-                            self.unban(user, function(errors){
-                                if(errors != null){
-                                    winston.log("error", exports.name, "Unable to unban user:", user.ID);
-                                } else {
-                                    winston.log("info", exports.name, "Succesfully unbanned:", user.ID);
-                                }
-                            });
-                        }, time));
-                    }
+                            self.cleaner(user);
+                        }
+                    });
+
                     winston.log("info", exports.name, "DB Loaded!");
                 }
             }
