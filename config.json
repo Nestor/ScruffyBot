@@ -18,10 +18,10 @@
         },
         "ban_manager":{
             "canBan":[
-                {"maxTime": 604800, "role":24},
                 {"maxTime": 604800, "role":22},
                 {"maxTime": 604800, "role":23},
-                {"maxTime": 604800, "role":22}
+                {"maxTime": 604800, "role":24},
+                {"maxTime": 604800, "role":25}
             ],
             "canFullUnbanRoles":[14, 1, 3, 7, 15, 17, 26, 27]
         },
