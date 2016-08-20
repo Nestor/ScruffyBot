@@ -46,11 +46,13 @@ class HighlightCheck {
         var results = [];
 
         for(let [id, msg] of this.scruffy.msghistory.history){
-            //Conditions are: User mentioned, in a channel conversation, in the last 24hours
-            if(msg.notifs[0].mentionsArray.indexOf(userID) != -1 &&
-                Date.now() - msg.originalTimestamp < 86400000 &&
-                this.scruffy.channels.get(msg.conversationID) != undefined){
-                results.push(id);
+            if(msg.notifs.length > 0){
+                //Conditions are: User mentioned, in a channel conversation, in the last 24hours
+                if(msg.notifs[0].mentionsArray.indexOf(userID) != -1 &&
+                    Date.now() - msg.originalTimestamp < 86400000 &&
+                    this.scruffy.channels.get(msg.conversationID) != undefined){
+                    results.push(id);
+                }
             }
         }
 
