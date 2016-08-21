@@ -8,11 +8,28 @@ class CommandManager {
         //Parse messages
         var self = this;
         bot.on('message_received', (message) => {
-            self.handleMessage(message);
+            self._handleMessage(message);
         });
     }
 
-    handleMessage(message){
+    _isAllowedRole(command, roleArray){
+        var commandObject = this.commandMap.get(command);
+        var isAllowedRole = false;
+        for (let role of roleArray){
+            if(commandObject.allowedRoles.indexOf(role.ID) != -1){
+                isAllowedRole = true;
+            }
+        }
+        isAllowedRole = isAllowedRole || (commandObject.allowedRoles.length == 0);
+        return isAllowedRole;
+    }
+
+    _isAllowedUser(command, user){
+        var commandObject = this.commandMap.get(command);
+        return commandObject.allowedUsers.indexOf(user.senderID) != -1;
+    }
+
+    _handleMessage(message){
         if(message.content.startsWith(this.scruffy.config.commandPrefix)){
             //Split message content to get the command only
             var command = message.content.split(" ")[0].substr(1);
@@ -24,20 +41,16 @@ class CommandManager {
                     commandObject.linkedChannels.indexOf(message.conversation.ID) != -1);
 
                 //Check if user have the good role for this command and if he can ignore spamcheck
-                var isAllowedRole = false;
+                var isAllowedRole = this._isAllowedRole(command, message.senderRoles);
                 var ignoreSpamCheck = false;
                 for (let role of message.senderRoles){
-                    if(commandObject.allowedRoles.indexOf(role.ID) != -1){
-                        isAllowedRole = true;
-                    }
                     if(this.scruffy.config.roleIgnoringSpamCheck.indexOf(role.ID) != -1){
                         ignoreSpamCheck = true;
                     }
                 }
-                isAllowedRole = isAllowedRole || (commandObject.allowedRoles.length == 0);
 
                 //Check if user is allowed
-                var isAllowedUser = commandObject.allowedUsers.indexOf(message.senderID) != -1;
+                var isAllowedUser = this._isAllowedUser(command, message.sender);
 
                 if(commandObject.lastTimeCalled.has(message.conversation.ID)){
                     var isNotSpamming = ( ignoreSpamCheck || ((Date.now() -
@@ -184,6 +197,17 @@ class CommandManager {
         }
     }
 
+    //Given a user and an array of Roles return all availables commands.
+    availableCommands(user, userRoles){
+        var commands = [];
+        for(let command of this.commandMap.keys()){
+            if(this._isAllowedRole(command, userRoles) || this._isAllowedUser(command, user)){
+                commands.push(command);
+            }
+        }
+        return commands;
+    }
+
     //Pase a command message into object of arguments and values
     parseArguments(text){
         var command = text.split(' ')[0];
@@ -211,27 +235,6 @@ class CommandManager {
         return str;
     }
 
-    findChannel(channel_name){
-        // Look for the corresponding channel
-        var channel;
-        var channel_secondresult;
-        for(let channel_item of this.scruffy.mainServer.channelList){
-            if(channel_name == channel_item.name){
-                channel = channel_item;
-            }
-            if(channel_item.name.indexOf(channel_name) != -1 ||
-                channel_item.urlPath.indexOf(channel_name) != -1){
-                channel_secondresult = channel_item;
-            }
-        }
-        if(channel == undefined && channel_secondresult != undefined){
-            channel = channel_secondresult;
-        }
-        if(channel == undefined){
-            return undefined;
-        }
-        return channel;
-    }
 }
 
 exports.CommandManager = CommandManager;

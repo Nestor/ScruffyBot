@@ -11,11 +11,13 @@ var logins = require('./logins.json');
 process.on('uncaughtException', function(err){
     winston.log('error', 'CRITICAL ERROR:', err);
     scruffy.msghistory.syncSaveDB();
+    scruffy.saveMap();
     process.exit();
 });
 
 process.on('SIGINT', function(){
     scruffy.msghistory.syncSaveDB();
+    scruffy.saveMap();
     process.exit();
 });
 

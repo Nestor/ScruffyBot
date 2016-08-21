@@ -59,20 +59,20 @@ class Ban_Manager{
                             if(errors == null){
                                 message.reply(`!ban: User ${user.username} (Nickname ${user.nickname}) has been banned for ${time}seconds.`);
                             } else {
-                                console.log(errors);
-                                message.reply("!ban: Cannot complete request.");
+                                winston.log('error', exports.name, 'Cannot complete request to find user.', errors);
+                                message.reply("!ban: Cannot complete request. [63]");
                             }
                         });
                     } else if(errors === null){
                         message.reply("!ban: No corresponding user found.");
                     } else {
                         winston.log('error', exports.name, 'Cannot complete request to find user.', errors);
-                        message.reply("!ban: Cannot complete request.");
+                        message.reply("!ban: Cannot complete request. [70]");
                     }
                 })
             }
         } else {
-            message.reply("!ban: No user specified.");
+            this.helpBan(message);
         }
 
 
@@ -83,6 +83,15 @@ class Ban_Manager{
         var args = this.scruffy.commands.parseArguments(message.content);
         var self = this;
         var userban;
+
+        function unbanCallback(errors){
+            if(errors == null){
+                message.reply(`!unban: User ${userban.username} unbanned.`);
+            } else {
+                message.reply("!unban: Cannot complete request. [91]");
+            }
+        };
+
         if(args.u != undefined){
             this.scruffy.mainServer.getBans(args.u, null, 1, function(errors, bans){
                 if(errors === null && bans.length > 0){
@@ -94,13 +103,12 @@ class Ban_Manager{
                     if(userban != undefined){
                         //Handle ban if sender can full unban
                         if(self.scruffy.getHighestRoleFromArray(message.senderRoles, self.config.canFullUnbanRoles) != undefined){
-                            self.scruffy.mainServer.unban(userban.user, function(errors){
-                                if(errors == null){
-                                    message.reply(`!unban: User ${userban.username} unbanned.`);
-                                } else {
-                                    message.reply("!unban: Cannot complete request.");
-                                }
-                            });
+                            if(self.scruffy.timebans.bans.hasOwnProperty(userban.user.ID)){
+                                self.scruffy.timebans.unban(userban.user, unbanCallback);
+                            }
+                            else {
+                                self.scruffy.mainServer.unban(userban.user, unbanCallback);
+                            }
                         }
                         //Handle self managed ban
                         else if(userban.requestorUser.ID == self.scruffy.clientID){
@@ -109,43 +117,34 @@ class Ban_Manager{
                                 rolesArray.push(item.role);
                             }
                             if(self.scruffy.getHighestRoleFromArray(message.senderRoles, rolesArray) != undefined){
-                                if(self.scruffy.timebans.bans.has(userban.user.ID)){
-                                    if(self.scruffy.timebans.bans.get(userban.user.ID).requestorID == message.sender.ID){
-                                        self.scruffy.timebans.unban(userban.user, function(errors){
-                                            if(errors == null){
-                                                message.reply(`!unban: User ${userban.username} unbanned.`);
-                                            } else {
-                                                message.reply("!unban: Cannot complete request.");
-                                            }
-                                        });
+                                if(self.scruffy.timebans.bans.hasOwnProperty(userban.user.ID)){
+                                    if(self.scruffy.timebans.bans[userban.user.ID].requestorID == message.sender.ID){
+                                        self.scruffy.timebans.unban(userban.user, unbanCallback);
                                     } else {
-                                        message.reply("!unban: Cannot unban this user.");
+                                        message.reply("!unban: Cannot unban this user. [124]");
                                     }
                                 } else {
-                                    message.reply("!unban: No corresponding bans found.");
+                                    message.reply("!unban: No corresponding bans found. [127]");
                                 }
 
                             }
                         } else {
-                            message.reply("!unban: Cannot unban this user.");
+                            message.reply("!unban: Cannot unban this user. [132]");
                         }
                     } else {
                         //Happens if api find the name in a ban reason
-                        message.reply("!unban: No corresponding bans found.");
+                        message.reply("!unban: No corresponding bans found. [136]");
                     }
                 } else if(errors === null){
-                    message.reply("!unban: No corresponding bans found.");
+                    message.reply("!unban: No corresponding bans found. [139]");
                 } else {
                     winston.log('error', exports.name, 'Cannot complete request to find ban.', errors);
-                    message.reply("!unban: Cannot complete request.");
+                    message.reply("!unban: Cannot complete request. [142]");
                 }
             });
         } else {
-            message.reply("!unban: Please specify a user.")
+            this.helpUnban(message);
         }
-
-
-        //If it's not a ban made by scruffy, check the ban and unban him if the author is moderator and author of the ban
 
     }
 
@@ -162,6 +161,25 @@ class Ban_Manager{
         } else {
             return undefined;
         }
+    }
+
+    helpBan(message){
+        var text = `The _!ban_ allow moderators to ban a user for a specific amount of time.\n` +
+        `Arguments: \n` +
+        `\`-u [user]\` User to ban.\n` +
+        `\`-d [duration]\` Duration of the ban under the form: "1d" (1day) or "5h 30m" (5h30).\n` +
+        `\`-r [reason]\` ~Facultative~ Reason of the ban.\n` +
+        `\`-ip\` ~Facultative~ Ban users with the same IP if this argument is used. \n` +
+        `_Example:_ \n \`!ban -u MyUsername -d 4h 30m -r Not nice.\` Ban MyUser for 4h30 with reason "Not nice.".`;
+        message.reply(text);
+    }
+
+    helpUnban(message){
+        var text = `The _!unban_ allow moderators to remove their own bans or existing bans.\n` +
+        `Arguments: \n` +
+        `\`-u [user]\` User to ban.\n` +
+        `_Example:_ \n \`!unban -u MyUsername\` Unban the user MyUsername.`;
+        message.reply(text);
     }
 
 

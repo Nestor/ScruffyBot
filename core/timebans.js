@@ -18,12 +18,40 @@ class Ban{
 class TimebansManager {
     constructor(bot){
         this.scruffy = bot;
-        this.bans = new Map();
-        this.cleaners = new Map();
         this.config = this.scruffy.config.timebans;
-        this.saving = false;
 
-        this.loadDB();
+        if(this.scruffy.persistantMap.has(exports.name)){
+            this.persistantMap = this.scruffy.persistantMap.get(exports.name);
+            winston.log("info", exports.name, "DB Loaded!");
+        } else {
+            this.persistantMap = this.scruffy.persistantMap.set(exports.name, {bans: {}}).get(exports.name);
+            winston.log("info", exports.name, "DB Created!");
+        }
+
+        this.cleaners = new Map();
+        var self = this;
+
+        //Add cleaners when client is ready
+        this.scruffy.on('ready', function(){
+            //Generate cleaners for each ban
+            for(let userID in self.persistantMap.bans){
+                if(self.persistantMap.bans.hasOwnProperty(userID)){
+                    let ban = self.persistantMap.bans[userID];
+
+                    //calculate when user will get unbanned
+                    var time = (ban.requestTimestamp + ban.banDuration) - Date.now();
+                    //Let 10seconds before cleaning expired bans to avoid spamming on loading
+                    if(time < 10000){
+                        time = 10000;
+                    }
+
+                    //Take care of unbanning
+                    var user = self.scruffy.getUser(userID);
+                    self.cleaner(user);
+                }
+            }
+        });
+
     }
 
     /**
@@ -58,19 +86,17 @@ class TimebansManager {
                     };
 
                     //Register the ban into a map
-                    self.bans.set(user.ID, new Ban(
+                    self.persistantMap.bans[user.ID] = new Ban(
                         user.ID,
                         server_reason,
                         duration,
                         requestor.ID,
                         requestTimestamp,
                         ipban
-                    ));
+                    );
 
                     //Clean automatically the ban after the given time
                     self.cleaner(user);
-
-                    self.saveDB();
                 }
                 //transmit the callback
                 callback(errors);
@@ -84,8 +110,8 @@ class TimebansManager {
             clearTimeout(this.cleaners.get(user.ID));
         };
 
-        if(this.bans.has(user.ID)){
-            var ban = this.bans.get(user.ID);
+        if(this.persistantMap.bans.hasOwnProperty(user.ID)){
+            var ban = this.persistantMap.bans[user.ID];
             var timeToBan = (ban.requestTimestamp + ban.banDuration) - Date.now();
             if(timeToBan < 0){
                 this.unban(user, function(errors){
@@ -115,90 +141,14 @@ class TimebansManager {
             callback = _ => {};
         }
         winston.log('info', exports.name, `Unbanning ${user.ID}.`);
-        if(this.bans.has(user.ID)){
+        if(this.persistantMap.bans.hasOwnProperty(user.ID)){
             this.scruffy.mainServer.unban(user, callback);
-            this.bans.delete(user.ID);
+            delete this.persistantMap.bans[user.ID];
         }
         if(this.cleaners.has(user.ID)){
             clearTimeout(this.cleaners.get(user.ID));
             this.cleaners.delete(user.ID);
         };
-        this.saveDB();
-    }
-
-    formatDB(){
-        var db = JSON.stringify({version: 1, db: [...this.bans]}, null, 2);
-        return db;
-    }
-
-    saveDB(callback){
-        if (callback == undefined){
-            callback = _ => {};
-        }
-        if(!this.saving){
-            this.saving = true;
-            let db = this.formatDB();
-            var self = this;
-            //Instead of writing on top of the current db, we write next to it, and replace it once everything is written.
-            fs.writeFile(this.config.dblocation + ".tmp", db, function(err) {
-                if(err) {
-                    winston.log("error", exports.name, err);
-                } else {
-                    fs.rename(self.config.dblocation + ".tmp", self.config.dblocation, function(err){
-                        if(err){
-                            winston.log("error", exports.name, err);
-                        } else {
-                            winston.log("info", exports.name, "DB Saved!");
-                        }
-                    });
-                }
-                self.saving = false;
-                callback(err);
-            });
-        } else {
-            var self = this;
-            setTimeout(function(){
-                self.saveDB(callback);
-            }, 30000);
-        }
-    }
-
-    loadDB(callback){
-        var self = this;
-        if (callback == undefined){
-            callback = _ => {};
-        }
-        try{
-            var file = fs.readFileSync(this.config.dblocation, 'utf8');
-            if (file != undefined){
-                let dbfile = JSON.parse(file);
-                if(dbfile.db.length>0 && dbfile.version == 1){
-                    //Load db to map
-                    this.bans = new Map(dbfile.db);
-
-                    //Add cleaners when client is ready
-                    this.scruffy.on('ready', function(){
-                        //Generate cleaners for each ban
-                        for(let [userID, ban] of self.bans){
-                            //calculate when user will get unbanned
-                            var time = (ban.requestTimestamp + ban.banDuration) - Date.now();
-                            if(time < 10000){
-                                time = 10000;
-                            }
-
-                            //Take care of unbanning
-                            var user = self.scruffy.getUser(userID);
-                            self.cleaner(user);
-                        }
-                    });
-
-                    winston.log("info", exports.name, "DB Loaded!");
-                }
-            }
-        }
-        catch(err){
-            winston.log("info", exports.name, "No DB Avalaible!");
-        }
     }
 
 }

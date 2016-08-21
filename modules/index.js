@@ -6,7 +6,8 @@ var index = [
     require('./deledited.js'),
     require('./spaceit.js'),
     require('./highlight_check.js'),
-    require('./ban_manager.js')
+    require('./ban_manager.js'),
+    require('./help.js')
 ]
 
 exports.modules = index;
