@@ -7,9 +7,7 @@
         "cleanerTime": 604800,
         "dblocation": "./modules_files/msghistory.json"
     },
-    "timebans":{
-        "dblocation": "./modules_files/timebans.json"
-    },
+    "persistantMap": "./modules_files/persistantMap.json",
     "modules":
     {
         "linkprevent":{
@@ -27,7 +25,7 @@
         },
         "deledited":{
             "saveDB":{
-                "allowedRoles":[3]
+                "allowedRoles":[7]
             },
             "deled":{
                 "allowedRoles":[14, 1, 3, 7, 15, 17, 26, 27]
